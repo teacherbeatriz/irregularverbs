@@ -5,19 +5,32 @@
 <title>Ruleta Exacta</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { background:#1e1b4b; color:white; font-family:Poppins,sans-serif }
-  .wheel-container { width:380px; height:380px; position:relative }
+  body {
+    background:#1e1b4b;
+    color:white;
+    font-family:Poppins,sans-serif;
+  }
+  .wheel-container {
+    width:380px;
+    height:380px;
+    position:relative;
+  }
   .wheel {
-    width:100%; height:100%; border-radius:50%;
+    width:100%;
+    height:100%;
+    border-radius:50%;
     transition:transform 4s cubic-bezier(.17,.67,.12,.99);
+    position:relative;
   }
   .pointer {
-    position:absolute; top:-15px; left:50%;
+    position:absolute;
+    top:-15px;
+    left:50%;
     transform:translateX(-50%);
     width:0;height:0;
     border-left:20px solid transparent;
     border-right:20px solid transparent;
-    border-top:40px solid white;
+    border-top:40px solid #facc15;
     z-index:10;
   }
 </style>
@@ -25,7 +38,7 @@
 
 <body class="flex flex-col items-center py-6 gap-4">
 
-<h1 class="text-3xl font-bold">🎰 Ruleta Exacta</h1>
+<h1 class="text-3xl font-bold">🎰 Ruleta de Números</h1>
 
 <div id="result" class="text-4xl text-yellow-400 h-12"></div>
 
@@ -41,7 +54,7 @@ SPIN
 <script>
 const numbers = Array.from({length:26},(_,i)=>i+1)
 let active = [...numbers]
-let rotation = 0
+let currentRotation = 0
 let spinning = false
 
 const colors = [
@@ -53,15 +66,16 @@ const colors = [
 ]
 
 function drawWheel(){
-  const w=document.getElementById('wheel')
-  w.innerHTML=''
+  const wheel=document.getElementById('wheel')
+  wheel.innerHTML=''
   const seg=360/active.length
 
   const gradient=active.map((n,i)=>
     `${colors[(n-1)%colors.length]} ${i*seg}deg ${(i+1)*seg}deg`
   ).join(',')
 
-  w.style.background=`conic-gradient(${gradient})`
+  /* IMPORTANT: rotamos el fondo -90° para que el segmento 0 empiece ARRIBA */
+  wheel.style.background=`conic-gradient(from -90deg, ${gradient})`
 
   active.forEach((n,i)=>{
     const a=i*seg+seg/2
@@ -70,10 +84,14 @@ function drawWheel(){
     const y=50+Math.sin(r)*35
     const d=document.createElement('div')
     d.textContent=n
-    d.style=`position:absolute;left:${x}%;top:${y}%;
+    d.style=`
+      position:absolute;
+      left:${x}%;
+      top:${y}%;
       transform:translate(-50%,-50%) rotate(${a}deg);
-      font-weight:bold`
-    w.appendChild(d)
+      font-weight:bold;
+    `
+    wheel.appendChild(d)
   })
 }
 
@@ -83,18 +101,22 @@ function spin(){
   document.getElementById('result').textContent=''
 
   const seg=360/active.length
-  const spins=5+Math.floor(Math.random()*3)
-  const offset=Math.random()*360
 
-  rotation+=spins*360+offset
-  wheel.style.transform=`rotate(${rotation}deg)`
+  /* 1️⃣ Elegimos el ganador */
+  const winnerIndex=Math.floor(Math.random()*active.length)
+  const winner=active[winnerIndex]
+
+  /* 2️⃣ Calculamos el ángulo EXACTO del centro del segmento */
+  const targetAngle=winnerIndex*seg+seg/2
+
+  /* 3️⃣ Giramos para que quede ARRIBA */
+  const spins=5+Math.floor(Math.random()*3)
+  const rotation=spins*360 - targetAngle
+
+  currentRotation+=rotation
+  wheel.style.transform=`rotate(${currentRotation}deg)`
 
   setTimeout(()=>{
-    const norm=((rotation%360)+360)%360
-    const index=Math.floor(
-      ((360-norm+seg/2)%360)/seg
-    )
-    const winner=active[index]
     document.getElementById('result').textContent=winner
     spinning=false
   },4000)

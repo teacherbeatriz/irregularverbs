@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruleta de Números</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { font-family: 'Poppins', sans-serif; }
+    body { box-sizing: border-box; }
+
+    .wheel-container {
+      position: relative;
+      width: min(380px, 85vw);
+      height: min(380px, 85vw);
+    }
+
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+      box-shadow: 0 0 30px rgba(0,0,0,.3), inset 0 0 20px rgba(255,255,255,.1);
+      position: relative;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-top: 40px solid #1e1b4b;
+      z-index: 10;
+    }
+
+    .center-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70px;
+      height: 70px;
+      background: linear-gradient(145deg, #1e1b4b, #312e81);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+  </style>
+</head>
+
+<body class="h-full bg-gradient-to-br from-indigo-950 via-purple-900 to-violet-950 overflow-auto">
+
+<div class="min-h-full w-full flex flex-col items-center py-6 px-4">
+
+  <h1 class="text-4xl font-extrabold text-white mb-2">🎰 Ruleta de Números</h1>
+
+  <div id="result-display" class="text-3xl font-bold text-yellow-400 h-12 hidden">
+    Número <span id="result-number"></span>
+  </div>
+
+  <div class="wheel-container my-4">
+    <div class="pointer"></div>
+    <div id="wheel" class="wheel"></div>
+    <div class="center-circle text-purple-300 font-bold">✔</div>
+  </div>
+
+  <div class="flex gap-3 mb-4">
+    <button id="spin-btn" class="px-8 py-3 rounded-full bg-purple-600 text-white font-bold">🎲 SPIN</button>
+    <button id="eliminate-btn" class="px-6 py-3 rounded-full bg-rose-600 text-white font-bold hidden">❌ Eliminar</button>
+    <button id="reset-btn" class="px-6 py-3 rounded-full bg-emerald-600 text-white font-bold">🔄 Reset</button>
+  </div>
+
+  <div class="bg-white/10 rounded-xl p-4 w-full max-w-lg">
+    <h3 class="text-white text-center mb-2">
+      Números restantes: <span id="remaining-count"></span>
+    </h3>
+    <div id="numbers-grid" class="grid grid-cols-7 gap-2 justify-items-center"></div>
+  </div>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+
+const allNumbers = Array.from({ length: 26 }, (_, i) => i + 1);
+let activeNumbers = [...allNumbers];
+let eliminatedNumbers = [];
+let currentRotation = 0;
+let currentResult = null;
+let isSpinning = false;
+
+const colors = [
+  '#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
+  '#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9',
+  '#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef',
+  '#ec4899','#f43f5e','#dc2626','#ea580c','#ca8a04',
+  '#65a30d','#16a34a','#0d9488','#0891b2','#2563eb','#7c3aed'
+];
+
+/* ================== WHEEL ================== */
+
+function createWheel() {
+  const wheel = document.getElementById('wheel');
+  wheel.innerHTML = '';
+
+  if (!activeNumbers.length) return;
+
+  const angle = 360 / activeNumbers.length;
+
+  const gradient = activeNumbers.map((n, i) => {
+    return `${colors[(n-1)%colors.length]} ${i*angle}deg ${(i+1)*angle}deg`;
+  }).join(', ');
+
+  wheel.style.background = `conic-gradient(${gradient})`;
+
+  activeNumbers.forEach((num, i) => {
+    const a = i * angle + angle / 2;
+    const r = (a - 90) * Math.PI / 180;
+    const x = 50 + Math.cos(r) * 35;
+    const y = 50 + Math.sin(r) * 35;
+
+    const label = document.createElement('div');
+    label.textContent = num;
+    label.className = 'absolute text-white font-bold';
+    label.style.left = `${x}%`;
+    label.style.top = `${y}%`;
+    label.style.transform = `translate(-50%, -50%) rotate(${a}deg)`;
+    wheel.appendChild(label);
+  });
+}
+
+/* ================== GRID ================== */
+
+function createGrid() {
+  const grid = document.getElementById('numbers-grid');
+  grid.innerHTML = '';
+
+  allNumbers.forEach(n => {
+    const d = document.createElement('div');
+    d.textContent = n;
+    d.id = `num-${n}`;
+    d.className = `w-8 h-8 flex items-center justify-center rounded-full font-bold ${
+      eliminatedNumbers.includes(n)
+      ? 'bg-gray-600 text-gray-400 line-through'
+      : 'bg-purple-600 text-white'
+    }`;
+    grid.appendChild(d);
+  });
+
+  document.getElementById('remaining-count').textContent = activeNumbers.length;
+}
+
+/* ================== SPIN (FIXED) ================== */
+
+function spin() {
+  if (isSpinning || !activeNumbers.length) return;
+
+  isSpinning = true;
+  document.getElementById('spin-btn').disabled = true;
+  document.getElementById('eliminate-btn').classList.add('hidden');
+  document.getElementById('result-display').classList.add('hidden');
+
+  const segment = 360 / activeNumbers.length;
+  const spins = 5 + Math.floor(Math.random() * 3);
+  const randomAngle = Math.random() * 360;
+
+  currentRotation += spins * 360 + randomAngle;
+  document.getElementById('wheel').style.transform = `rotate(${currentRotation}deg)`;
+
+  setTimeout(() => {
+    const normalized = ((currentRotation % 360) + 360) % 360;
+    const pointerAngle = (360 - normalized + 270) % 360;
+    const index = Math.floor(pointerAngle / segment) % activeNumbers.length;
+
+    currentResult = activeNumbers[index];
+
+    document.getElementById('result-number').textContent = currentResult;
+    document.getElementById('result-display').classList.remove('hidden');
+    document.getElementById('eliminate-btn').classList.remove('hidden');
+    document.getElementById('spin-btn').disabled = false;
+
+    isSpinning = false;
+  }, 4000);
+}
+
+/* ================== ELIMINATE ================== */
+
+function eliminate() {
+  if (currentResult == null) return;
+
+  activeNumbers = activeNumbers.filter(n => n !== currentResult);
+  eliminatedNumbers.push(currentResult);
+
+  currentResult = null;
+  createWheel();
+  createGrid();
+
+  document.getElementById('eliminate-btn').classList.add('hidden');
+  document.getElementById('result-display').classList.add('hidden');
+}
+
+/* ================== RESET ================== */
+
+function resetGame() {
+  activeNumbers = [...allNumbers];
+  eliminatedNumbers = [];
+  currentRotation = 0;
+  currentResult = null;
+
+  const wheel = document.getElementById('wheel');
+  wheel.style.transition = 'none';
+  wheel.style.transform = 'rotate(0deg)';
+  setTimeout(() => {
+    wheel.style.transition = 'transform 4s cubic-bezier(0.17,0.67,0.12,0.99)';
+  }, 50);
+
+  createWheel();
+  createGrid();
+}
+
+/* ================== INIT ================== */
+
+document.getElementById('spin-btn').onclick = spin;
+document.getElementById('eliminate-btn').onclick = eliminate;
+document.getElementById('reset-btn').onclick = resetGame;
+
+createWheel();
+createGrid();
+</script>
+
+</body>
+</html>

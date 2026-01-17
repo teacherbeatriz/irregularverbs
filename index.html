@@ -1,204 +1,263 @@
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Ruleta con Eliminación</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Irregular Simple Past Verbs Wheel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    * {
+      font-family: 'Nunito', sans-serif;
+    }
+    .wheel-container {
+      filter: drop-shadow(0 10px 25px rgba(0,0,0,0.3));
+    }
+    .spin-animation {
+      transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,107,107,0.5); }
+      50% { box-shadow: 0 0 40px rgba(255,107,107,0.8); }
+    }
+    .glow-pulse {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes bounce-in {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .bounce-in {
+      animation: bounce-in 0.5s ease-out forwards;
+    }
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      animation: confetti-fall 3s ease-out forwards;
+    }
+    @keyframes confetti-fall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app-wrapper" class="h-full w-full overflow-auto" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);">
+   <div class="min-h-full w-full flex flex-col items-center justify-center p-4 md:p-8"><!-- Title -->
+    <h1 id="main-title" class="text-2xl md:text-4xl font-black text-white text-center mb-6 md:mb-8 drop-shadow-lg">🎯 Irregular Simple Past Verbs Wheel</h1><!-- Wheel Section -->
+    <div class="relative wheel-container mb-6 md:mb-8"><!-- Pointer -->
+     <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 z-20">
+      <div class="w-0 h-0 border-l-[15px] border-r-[15px] border-t-[25px] border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-lg"></div>
+     </div><!-- Wheel -->
+     <svg id="wheel" class="spin-animation" width="280" height="280" viewbox="0 0 280 280"><defs>
+       <filter id="inner-shadow">
+        <feoffset dx="0" dy="2" />
+        <fegaussianblur stddeviation="3" result="offset-blur" />
+        <fecomposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+        <feflood flood-color="black" flood-opacity="0.2" result="color" />
+        <fecomposite operator="in" in="color" in2="inverse" result="shadow" />
+        <fecomposite operator="over" in="shadow" in2="SourceGraphic" />
+       </filter>
+      </defs> <!-- Wheel segments will be drawn by JS -->
+     </svg><!-- Center button --> <button id="spin-btn" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white font-black text-sm md:text-base shadow-xl hover:scale-105 transition-transform duration-200 glow-pulse border-4 border-white"> SPIN! </button>
+    </div><!-- Selected Word Display -->
+    <div id="result-section" class="hidden">
+     <h2 id="selected-verb" class="text-5xl md:text-6xl font-black text-white drop-shadow-lg bounce-in"></h2>
+    </div><!-- Score -->
+    <div class="mt-6 text-white font-bold text-center">
+     <p class="text-white/70 text-sm">Verbs Practiced</p>
+     <p id="total-count" class="text-3xl">0</p>
+    </div><!-- Confetti container -->
+    <div id="confetti-container" class="fixed inset-0 pointer-events-none overflow-hidden"></div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      main_title: '🎯 Irregular Simple Past Verbs Wheel',
+      spin_button_text: 'SPIN!'
+    };
 
-<style>
-  body {
-    background: #1e1b4b;
-    color: white;
-    font-family: system-ui, sans-serif;
-  }
+    const verbs = [
+      { infinitive: 'cortar', past: 'corté' },
+      { infinitive: 'costar', past: 'costó' },
+      { infinitive: 'golpear', past: 'golpeé' },
+      { infinitive: 'doler', past: 'dolió' },
+      { infinitive: 'permitir', past: 'permitió' },
+      { infinitive: 'poner', past: 'puse' },
+      { infinitive: 'leer', past: 'leí' }
+    ];
 
-  .wheel-container {
-    width: 380px;
-    height: 380px;
-    position: relative;
-  }
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
+      '#FFEAA7', '#DDA0DD', '#98D8C8'
+    ];
 
-  .wheel {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    transition: transform 4s cubic-bezier(0.17,0.67,0.12,0.99);
-    position: relative;
-  }
+    let currentRotation = 0;
+    let isSpinning = false;
+    let selectedVerb = null;
+    let totalCount = 0;
 
-  .pointer {
-    position: absolute;
-    top: -15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0; height: 0;
-    border-left: 20px solid transparent;
-    border-right: 20px solid transparent;
-    border-top: 40px solid #facc15;
-    z-index: 10;
-  }
+    function drawWheel() {
+      const wheel = document.getElementById('wheel');
+      const cx = 140, cy = 140, r = 130;
+      const segmentAngle = 360 / verbs.length;
+      
+      let svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1a1a2e" filter="url(#inner-shadow)"/>`;
+      
+      verbs.forEach((verb, i) => {
+        const startAngle = (i * segmentAngle - 90) * Math.PI / 180;
+        const endAngle = ((i + 1) * segmentAngle - 90) * Math.PI / 180;
+        
+        const x1 = cx + r * Math.cos(startAngle);
+        const y1 = cy + r * Math.sin(startAngle);
+        const x2 = cx + r * Math.cos(endAngle);
+        const y2 = cy + r * Math.sin(endAngle);
+        
+        const largeArc = segmentAngle > 180 ? 1 : 0;
+        
+        svg += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" 
+                      fill="${colors[i]}" stroke="#fff" stroke-width="2"/>`;
+        
+        const textAngle = (i * segmentAngle + segmentAngle / 2 - 90) * Math.PI / 180;
+        const textR = r * 0.65;
+        const textX = cx + textR * Math.cos(textAngle);
+        const textY = cy + textR * Math.sin(textAngle);
+        const rotation = i * segmentAngle + segmentAngle / 2;
+        
+        svg += `<text x="${textX}" y="${textY}" 
+                      fill="#fff" font-weight="800" font-size="14" 
+                      text-anchor="middle" dominant-baseline="middle"
+                      transform="rotate(${rotation}, ${textX}, ${textY})"
+                      style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5)">
+                  ${verb.infinitive}
+                </text>`;
+      });
+      
+      wheel.innerHTML = svg;
+    }
 
-  .numbers-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
-    margin-top: 16px;
-  }
+    function spin() {
+      if (isSpinning) return;
+      isSpinning = true;
+      
+      const wheel = document.getElementById('wheel');
+      const resultSection = document.getElementById('result-section');
+      const spinBtn = document.getElementById('spin-btn');
+      
+      resultSection.classList.add('hidden');
+      spinBtn.disabled = true;
+      spinBtn.classList.remove('glow-pulse');
+      
+      const spins = 5 + Math.random() * 3;
+      const segmentAngle = 360 / verbs.length;
+      const randomSegment = Math.floor(Math.random() * verbs.length);
+      
+      // Calculate target rotation so the pointer lands in the middle of the segment
+      const targetSegmentAngle = randomSegment * segmentAngle;
+      const targetRotation = spins * 360 + targetSegmentAngle;
+      
+      currentRotation = targetRotation;
+      wheel.style.transform = `rotate(${currentRotation}deg)`;
+      
+      // The wheel rotates clockwise, pointer is at top (0 degrees)
+      // After rotation, calculate which segment is under the pointer
+      const normalizedRotation = currentRotation % 360;
+      const pointerSegmentIndex = Math.floor((360 - normalizedRotation) / segmentAngle) % verbs.length;
+      
+      selectedVerb = verbs[pointerSegmentIndex];
+      
+      setTimeout(() => {
+        showQuestion();
+        isSpinning = false;
+        spinBtn.disabled = false;
+      }, 4200);
+    }
 
-  .number-badge {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    border-radius: 50%;
-    background: #6b21a8;
-    cursor: default;
-  }
+    function showQuestion() {
+      const resultSection = document.getElementById('result-section');
+      const selectedVerbEl = document.getElementById('selected-verb');
+      
+      totalCount++;
+      document.getElementById('total-count').textContent = totalCount;
+      
+      selectedVerbEl.textContent = selectedVerb.infinitive.toUpperCase();
+      
+      createConfetti();
+      
+      resultSection.classList.remove('hidden');
+      resultSection.classList.add('bounce-in');
+      
+      // Auto hide after 3 seconds
+      setTimeout(() => {
+        resultSection.classList.add('hidden');
+        document.getElementById('spin-btn').classList.add('glow-pulse');
+      }, 3000);
+    }
 
-  .number-badge.eliminated {
-    background: #4b5563;
-    text-decoration: line-through;
-    opacity: 0.5;
-  }
-</style>
-</head>
+    function createConfetti() {
+      const container = document.getElementById('confetti-container');
+      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+      
+      for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = '-10px';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        container.appendChild(confetti);
+        
+        setTimeout(() => confetti.remove(), 3500);
+      }
+    }
 
-<body class="flex flex-col items-center gap-4 py-6">
+    async function onConfigChange(config) {
+      const title = document.getElementById('main-title');
+      const spinBtn = document.getElementById('spin-btn');
+      
+      title.textContent = config.main_title || defaultConfig.main_title;
+      spinBtn.textContent = config.spin_button_text || defaultConfig.spin_button_text;
+    }
 
-<h1 class="text-3xl font-bold">🎰 Ruleta de Números</h1>
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
 
-<div id="result" class="text-4xl text-yellow-400 h-12"></div>
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['main_title', config.main_title || defaultConfig.main_title],
+        ['spin_button_text', config.spin_button_text || defaultConfig.spin_button_text]
+      ]);
+    }
 
-<div class="wheel-container">
-  <div class="pointer"></div>
-  <div id="wheel" class="wheel"></div>
-</div>
+    // Initialize
+    drawWheel();
+    
+    document.getElementById('spin-btn').addEventListener('click', spin);
 
-<div class="flex gap-3">
-  <button id="spin" class="px-8 py-3 bg-purple-600 rounded-full font-bold">SPIN</button>
-  <button id="eliminate" class="px-6 py-3 bg-rose-600 rounded-full font-bold hidden">❌ Eliminar</button>
-  <button id="reset" class="px-6 py-3 bg-emerald-600 rounded-full font-bold">🔄 Reset</button>
-</div>
-
-<div class="numbers-grid" id="numbers-grid"></div>
-
-<script>
-let numbers = Array.from({length:26},(_,i)=>i+1)
-let active = [...numbers]
-let rotation = 0
-let spinning = false
-let lastWinner = null
-
-const colors = [
-  '#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
-  '#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9',
-  '#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef',
-  '#ec4899','#f43f5e','#dc2626','#ea580c','#ca8a04',
-  '#65a30d','#16a34a','#0d9488','#0891b2','#2563eb','#7c3aed'
-]
-
-function drawWheel() {
-  const wheel = document.getElementById('wheel')
-  wheel.innerHTML = ''
-
-  if(active.length === 0){
-    wheel.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-weight:bold">FIN</div>'
-    return
-  }
-
-  const seg = 360 / active.length
-  const gradient = active.map((n,i)=>`${colors[(n-1)%colors.length]} ${i*seg}deg ${(i+1)*seg}deg`).join(',')
-
-  wheel.style.background = `conic-gradient(from -90deg, ${gradient})`
-
-  active.forEach((n,i)=>{
-    const angle = i*seg + seg/2
-    const rad = (angle-90)*Math.PI/180
-    const x = 50 + Math.cos(rad)*35
-    const y = 50 + Math.sin(rad)*35
-    const label = document.createElement('div')
-    label.textContent = n
-    label.style = `
-      position:absolute;
-      left:${x}%;
-      top:${y}%;
-      transform:translate(-50%,-50%) rotate(${angle}deg);
-      font-weight:bold;
-    `
-    wheel.appendChild(label)
-  })
-}
-
-function drawGrid(){
-  const grid = document.getElementById('numbers-grid')
-  grid.innerHTML = ''
-  numbers.forEach(n=>{
-    const badge = document.createElement('div')
-    badge.textContent = n
-    badge.className = 'number-badge' + (active.includes(n)?'':' eliminated')
-    grid.appendChild(badge)
-  })
-}
-
-function spin(){
-  if(spinning || active.length === 0) return
-  spinning = true
-  lastWinner = null
-  document.getElementById('result').textContent = ''
-  document.getElementById('eliminate').classList.add('hidden')
-
-  const seg = 360 / active.length
-  const winnerIndex = Math.floor(Math.random() * active.length)
-  const winner = active[winnerIndex]
-  lastWinner = winner
-
-  const targetAngle = winnerIndex*seg + seg/2
-  const spins = 5 + Math.floor(Math.random()*3)
-  rotation = spins*360 - targetAngle
-
-  const wheel = document.getElementById('wheel')
-  wheel.style.transform = `rotate(${rotation}deg)`
-
-  setTimeout(()=>{
-    document.getElementById('result').textContent = winner
-    document.getElementById('eliminate').classList.remove('hidden')
-    spinning = false
-  },4000)
-}
-
-function eliminate(){
-  if(lastWinner == null) return
-  active = active.filter(n=>n!==lastWinner)
-  drawWheel()
-  drawGrid()
-  document.getElementById('eliminate').classList.add('hidden')
-  document.getElementById('result').textContent = ''
-  lastWinner = null
-}
-
-function resetGame(){
-  active = [...numbers]
-  rotation = 0
-  lastWinner = null
-  document.getElementById('wheel').style.transition = 'none'
-  document.getElementById('wheel').style.transform = 'rotate(0deg)'
-  setTimeout(()=>document.getElementById('wheel').style.transition = 'transform 4s cubic-bezier(0.17,0.67,0.12,0.99)',50)
-  drawWheel()
-  drawGrid()
-  document.getElementById('result').textContent = ''
-  document.getElementById('eliminate').classList.add('hidden')
-}
-
-document.getElementById('spin').onclick = spin
-document.getElementById('eliminate').onclick = eliminate
-document.getElementById('reset').onclick = resetGame
-
-drawWheel()
-drawGrid()
-</script>
-
-</body>
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bf5c779d1eccbba',t:'MTc2ODY1MjEzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

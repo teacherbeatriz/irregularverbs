@@ -2,41 +2,46 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Ruleta Exacta</title>
+<title>Ruleta Correcta</title>
 <script src="https://cdn.tailwindcss.com"></script>
+
 <style>
   body {
-    background:#1e1b4b;
-    color:white;
-    font-family:Poppins,sans-serif;
+    background: #1e1b4b;
+    color: white;
+    font-family: system-ui, sans-serif;
   }
+
   .wheel-container {
-    width:380px;
-    height:380px;
-    position:relative;
+    width: 380px;
+    height: 380px;
+    position: relative;
   }
+
   .wheel {
-    width:100%;
-    height:100%;
-    border-radius:50%;
-    transition:transform 4s cubic-bezier(.17,.67,.12,.99);
-    position:relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    position: relative;
   }
+
   .pointer {
-    position:absolute;
-    top:-15px;
-    left:50%;
-    transform:translateX(-50%);
-    width:0;height:0;
-    border-left:20px solid transparent;
-    border-right:20px solid transparent;
-    border-top:40px solid #facc15;
-    z-index:10;
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 40px solid #facc15;
+    z-index: 10;
   }
 </style>
 </head>
 
-<body class="flex flex-col items-center py-6 gap-4">
+<body class="flex flex-col items-center gap-4 py-6">
 
 <h1 class="text-3xl font-bold">🎰 Ruleta de Números</h1>
 
@@ -52,77 +57,79 @@ SPIN
 </button>
 
 <script>
-const numbers = Array.from({length:26},(_,i)=>i+1)
-let active = [...numbers]
-let currentRotation = 0
+const numbers = Array.from({ length: 26 }, (_, i) => i + 1)
+let rotation = 0
 let spinning = false
 
 const colors = [
-'#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
-'#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9',
-'#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef',
-'#ec4899','#f43f5e','#dc2626','#ea580c','#ca8a04',
-'#65a30d','#16a34a','#0d9488','#0891b2','#2563eb','#7c3aed'
+  '#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
+  '#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9',
+  '#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef',
+  '#ec4899','#f43f5e','#dc2626','#ea580c','#ca8a04',
+  '#65a30d','#16a34a','#0d9488','#0891b2','#2563eb','#7c3aed'
 ]
 
-function drawWheel(){
-  const wheel=document.getElementById('wheel')
-  wheel.innerHTML=''
-  const seg=360/active.length
+function drawWheel() {
+  const wheel = document.getElementById('wheel')
+  wheel.innerHTML = ''
 
-  const gradient=active.map((n,i)=>
-    `${colors[(n-1)%colors.length]} ${i*seg}deg ${(i+1)*seg}deg`
+  const seg = 360 / numbers.length
+
+  const gradient = numbers.map((n, i) =>
+    `${colors[(n - 1) % colors.length]} ${i * seg}deg ${(i + 1) * seg}deg`
   ).join(',')
 
-  /* IMPORTANT: rotamos el fondo -90° para que el segmento 0 empiece ARRIBA */
-  wheel.style.background=`conic-gradient(from -90deg, ${gradient})`
+  /* 🔑 IMPORTANTE: empezamos desde ARRIBA */
+  wheel.style.background = `conic-gradient(from -90deg, ${gradient})`
 
-  active.forEach((n,i)=>{
-    const a=i*seg+seg/2
-    const r=(a-90)*Math.PI/180
-    const x=50+Math.cos(r)*35
-    const y=50+Math.sin(r)*35
-    const d=document.createElement('div')
-    d.textContent=n
-    d.style=`
+  numbers.forEach((n, i) => {
+    const angle = i * seg + seg / 2
+    const rad = (angle - 90) * Math.PI / 180
+    const x = 50 + Math.cos(rad) * 35
+    const y = 50 + Math.sin(rad) * 35
+
+    const label = document.createElement('div')
+    label.textContent = n
+    label.style = `
       position:absolute;
       left:${x}%;
       top:${y}%;
-      transform:translate(-50%,-50%) rotate(${a}deg);
+      transform:translate(-50%,-50%) rotate(${angle}deg);
       font-weight:bold;
     `
-    wheel.appendChild(d)
+    wheel.appendChild(label)
   })
 }
 
-function spin(){
-  if(spinning) return
-  spinning=true
-  document.getElementById('result').textContent=''
+function spin() {
+  if (spinning) return
+  spinning = true
+  document.getElementById('result').textContent = ''
 
-  const seg=360/active.length
+  const seg = 360 / numbers.length
 
-  /* 1️⃣ Elegimos el ganador */
-  const winnerIndex=Math.floor(Math.random()*active.length)
-  const winner=active[winnerIndex]
+  /* 1️⃣ número ganador */
+  const winnerIndex = Math.floor(Math.random() * numbers.length)
+  const winner = numbers[winnerIndex]
 
-  /* 2️⃣ Calculamos el ángulo EXACTO del centro del segmento */
-  const targetAngle=winnerIndex*seg+seg/2
+  /* 2️⃣ ángulo del centro del segmento */
+  const targetAngle = winnerIndex * seg + seg / 2
 
-  /* 3️⃣ Giramos para que quede ARRIBA */
-  const spins=5+Math.floor(Math.random()*3)
-  const rotation=spins*360 - targetAngle
+  /* 3️⃣ rotación TOTAL nueva (esto es lo que faltaba) */
+  const spins = 5 + Math.floor(Math.random() * 3)
+  rotation = spins * 360 - targetAngle
 
-  currentRotation+=rotation
-  wheel.style.transform=`rotate(${currentRotation}deg)`
+  const wheel = document.getElementById('wheel')
+  wheel.style.transform = `rotate(${rotation}deg)`
 
-  setTimeout(()=>{
-    document.getElementById('result').textContent=winner
-    spinning=false
-  },4000)
+  setTimeout(() => {
+    document.getElementById('result').textContent = winner
+    spinning = false
+  }, 4000)
 }
 
-spin.onclick=spin
+document.getElementById('spin').onclick = spin
+
 drawWheel()
 </script>
 

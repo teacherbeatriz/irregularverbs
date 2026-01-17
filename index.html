@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Ruleta Correcta</title>
+<title>Ruleta con Eliminación</title>
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
@@ -22,7 +22,7 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    transition: transform 4s cubic-bezier(0.17,0.67,0.12,0.99);
     position: relative;
   }
 
@@ -31,12 +31,37 @@
     top: -15px;
     left: 50%;
     transform: translateX(-50%);
-    width: 0;
-    height: 0;
+    width: 0; height: 0;
     border-left: 20px solid transparent;
     border-right: 20px solid transparent;
     border-top: 40px solid #facc15;
     z-index: 10;
+  }
+
+  .numbers-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .number-badge {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border-radius: 50%;
+    background: #6b21a8;
+    cursor: default;
+  }
+
+  .number-badge.eliminated {
+    background: #4b5563;
+    text-decoration: line-through;
+    opacity: 0.5;
   }
 </style>
 </head>
@@ -52,14 +77,20 @@
   <div id="wheel" class="wheel"></div>
 </div>
 
-<button id="spin" class="px-8 py-3 bg-purple-600 rounded-full font-bold">
-SPIN
-</button>
+<div class="flex gap-3">
+  <button id="spin" class="px-8 py-3 bg-purple-600 rounded-full font-bold">SPIN</button>
+  <button id="eliminate" class="px-6 py-3 bg-rose-600 rounded-full font-bold hidden">❌ Eliminar</button>
+  <button id="reset" class="px-6 py-3 bg-emerald-600 rounded-full font-bold">🔄 Reset</button>
+</div>
+
+<div class="numbers-grid" id="numbers-grid"></div>
 
 <script>
-const numbers = Array.from({ length: 26 }, (_, i) => i + 1)
+let numbers = Array.from({length:26},(_,i)=>i+1)
+let active = [...numbers]
 let rotation = 0
 let spinning = false
+let lastWinner = null
 
 const colors = [
   '#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
@@ -73,21 +104,21 @@ function drawWheel() {
   const wheel = document.getElementById('wheel')
   wheel.innerHTML = ''
 
-  const seg = 360 / numbers.length
+  if(active.length === 0){
+    wheel.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-weight:bold">FIN</div>'
+    return
+  }
 
-  const gradient = numbers.map((n, i) =>
-    `${colors[(n - 1) % colors.length]} ${i * seg}deg ${(i + 1) * seg}deg`
-  ).join(',')
+  const seg = 360 / active.length
+  const gradient = active.map((n,i)=>`${colors[(n-1)%colors.length]} ${i*seg}deg ${(i+1)*seg}deg`).join(',')
 
-  /* 🔑 IMPORTANTE: empezamos desde ARRIBA */
   wheel.style.background = `conic-gradient(from -90deg, ${gradient})`
 
-  numbers.forEach((n, i) => {
-    const angle = i * seg + seg / 2
-    const rad = (angle - 90) * Math.PI / 180
-    const x = 50 + Math.cos(rad) * 35
-    const y = 50 + Math.sin(rad) * 35
-
+  active.forEach((n,i)=>{
+    const angle = i*seg + seg/2
+    const rad = (angle-90)*Math.PI/180
+    const x = 50 + Math.cos(rad)*35
+    const y = 50 + Math.sin(rad)*35
     const label = document.createElement('div')
     label.textContent = n
     label.style = `
@@ -101,36 +132,72 @@ function drawWheel() {
   })
 }
 
-function spin() {
-  if (spinning) return
+function drawGrid(){
+  const grid = document.getElementById('numbers-grid')
+  grid.innerHTML = ''
+  numbers.forEach(n=>{
+    const badge = document.createElement('div')
+    badge.textContent = n
+    badge.className = 'number-badge' + (active.includes(n)?'':' eliminated')
+    grid.appendChild(badge)
+  })
+}
+
+function spin(){
+  if(spinning || active.length === 0) return
   spinning = true
+  lastWinner = null
   document.getElementById('result').textContent = ''
+  document.getElementById('eliminate').classList.add('hidden')
 
-  const seg = 360 / numbers.length
+  const seg = 360 / active.length
+  const winnerIndex = Math.floor(Math.random() * active.length)
+  const winner = active[winnerIndex]
+  lastWinner = winner
 
-  /* 1️⃣ número ganador */
-  const winnerIndex = Math.floor(Math.random() * numbers.length)
-  const winner = numbers[winnerIndex]
-
-  /* 2️⃣ ángulo del centro del segmento */
-  const targetAngle = winnerIndex * seg + seg / 2
-
-  /* 3️⃣ rotación TOTAL nueva (esto es lo que faltaba) */
-  const spins = 5 + Math.floor(Math.random() * 3)
-  rotation = spins * 360 - targetAngle
+  const targetAngle = winnerIndex*seg + seg/2
+  const spins = 5 + Math.floor(Math.random()*3)
+  rotation = spins*360 - targetAngle
 
   const wheel = document.getElementById('wheel')
   wheel.style.transform = `rotate(${rotation}deg)`
 
-  setTimeout(() => {
+  setTimeout(()=>{
     document.getElementById('result').textContent = winner
+    document.getElementById('eliminate').classList.remove('hidden')
     spinning = false
-  }, 4000)
+  },4000)
+}
+
+function eliminate(){
+  if(lastWinner == null) return
+  active = active.filter(n=>n!==lastWinner)
+  drawWheel()
+  drawGrid()
+  document.getElementById('eliminate').classList.add('hidden')
+  document.getElementById('result').textContent = ''
+  lastWinner = null
+}
+
+function resetGame(){
+  active = [...numbers]
+  rotation = 0
+  lastWinner = null
+  document.getElementById('wheel').style.transition = 'none'
+  document.getElementById('wheel').style.transform = 'rotate(0deg)'
+  setTimeout(()=>document.getElementById('wheel').style.transition = 'transform 4s cubic-bezier(0.17,0.67,0.12,0.99)',50)
+  drawWheel()
+  drawGrid()
+  document.getElementById('result').textContent = ''
+  document.getElementById('eliminate').classList.add('hidden')
 }
 
 document.getElementById('spin').onclick = spin
+document.getElementById('eliminate').onclick = eliminate
+document.getElementById('reset').onclick = resetGame
 
 drawWheel()
+drawGrid()
 </script>
 
 </body>
